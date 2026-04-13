@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         YouTube Hide Low Views Videos
-// @version      1.0.0
+// @version      1.1.0
 // @description  Hide YouTube homepage videos published with low views
 // @author       umbertoragone
 // @match        *://*.youtube.com/*
@@ -18,8 +18,8 @@
 (() => {
   "use strict";
 
-  const MIN_HOURS = 12; // Minimum age in hours to hide a video
-  const MAX_VIEWS = 1000; // Maximum number of views to hide a video
+  const MIN_HOURS = 12;
+  const MAX_VIEWS = 1000;
 
   const CONTAINER_SELECTOR =
     "ytd-rich-item-renderer, ytd-grid-video-renderer, ytd-video-renderer, yt-lockup-view-model";
@@ -48,28 +48,85 @@
     return Infinity;
   }
 
+  function extractMetadata(item) {
+    let viewsText = "";
+    let timeText = "";
+
+    // Try new layout first (yt-lockup-view-model)
+    const newMetadata = item.querySelector("yt-content-metadata-view-model");
+    if (newMetadata) {
+      const rows = newMetadata.querySelectorAll(
+        ".ytContentMetadataViewModelMetadataRow",
+      );
+      for (const row of rows) {
+        const spans = row.querySelectorAll('span[role="text"]');
+        for (const span of spans) {
+          const text = span.textContent || "";
+          // Skip channel name links (they contain <a> tags)
+          if (span.querySelector("a")) continue;
+          if (!viewsText && /^\d/.test(text)) {
+            viewsText = text;
+          } else if (
+            !timeText &&
+            /\b(minute|hour|day|week|month|year)s?\s+ago\b/.test(text)
+          ) {
+            timeText = text;
+          }
+        }
+      }
+    }
+
+    // Fall back to old layout
+    if (!viewsText || !timeText) {
+      const metadata = item.querySelector(
+        ".yt-content-metadata-view-model__metadata-row",
+      );
+      if (metadata) {
+        const parts =
+          metadata.parentElement?.querySelectorAll("span[role='text']");
+        if (parts && parts.length >= 2) {
+          viewsText = parts[0].textContent || "";
+          timeText = parts[1].textContent || "";
+        }
+      }
+    }
+
+    // Additional fallback: search broadly for metadata rows
+    if (!viewsText || !timeText) {
+      const allRows = item.querySelectorAll(
+        '[class*="metadata"] [role="text"], [class*="Metadata"] [role="text"]',
+      );
+      for (const el of allRows) {
+        const text = el.textContent || "";
+        if (!viewsText && /^\d[\d,.KM]*\s*views?$/i.test(text)) {
+          viewsText = text;
+        } else if (
+          !timeText &&
+          /\b(minute|hour|day|week|month|year)s?\s+ago\b/i.test(text)
+        ) {
+          timeText = text;
+        }
+      }
+    }
+
+    return { viewsText, timeText };
+  }
+
   function hideLowViewOldVideos() {
     const items = document.querySelectorAll(CONTAINER_SELECTOR);
     for (const item of items) {
-      const metadata = item.querySelector(
-        ".yt-content-metadata-view-model__metadata-row"
-      );
-      if (!metadata) continue;
+      // Skip already hidden items
+      if (item.style.display === "none") continue;
 
-      const parts =
-        metadata.parentElement?.querySelectorAll("span[role='text']");
-      if (!parts || parts.length < 2) continue;
+      const { viewsText, timeText } = extractMetadata(item);
 
-      const viewsText = parts[0].textContent || "";
-      const timeText = parts[1].textContent || "";
+      if (!viewsText || !timeText) continue;
 
       const views = parseViews(viewsText);
       const hours = parseHoursAgo(timeText);
 
       if (views < MAX_VIEWS && hours >= MIN_HOURS) {
-        if (item.style.display !== "none") {
-          item.style.display = "none";
-        }
+        item.style.display = "none";
       }
     }
   }
