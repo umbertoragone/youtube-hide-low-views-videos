@@ -4,8 +4,6 @@
 
 A lightweight userscript that **automatically hides low views videos** from YouTube's homepage.
 
----
-
 ## Features
 
 - Hides low views (usually low quality) videos
@@ -13,8 +11,6 @@ A lightweight userscript that **automatically hides low views videos** from YouT
 - Works dynamically with YouTube's modern **Single Page Application (SPA)** behavior
 - Reacts to scrolling and content updates automatically
 - 100% client‑side — no API calls, no external dependencies
-
----
 
 ## Installation
 
