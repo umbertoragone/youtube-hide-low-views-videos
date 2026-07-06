@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         YouTube Hide Low Views Videos
-// @version      1.1.0
+// @version      1.1.1
 // @description  Hide YouTube homepage videos published with low views
 // @author       umbertoragone
 // @match        *://*.youtube.com/*
@@ -37,6 +37,18 @@
     if (!text) return Infinity;
     text = text.toLowerCase();
 
+    const shortMatch = text.match(/(\d+(?:\.\d+)?)\s*([mhdwoy])\b/);
+    if (shortMatch) {
+      const num = parseFloat(shortMatch[1]);
+      const unit = shortMatch[2];
+      if (unit === "m") return num / 60;
+      if (unit === "h") return num;
+      if (unit === "d") return num * 24;
+      if (unit === "w") return num * 24 * 7;
+      if (unit === "o") return num * 24 * 30;
+      if (unit === "y") return num * 24 * 365;
+    }
+
     const num = parseFloat(text);
     if (text.includes("minute")) return num / 60;
     if (text.includes("hour")) return num;
@@ -61,14 +73,14 @@
       for (const row of rows) {
         const spans = row.querySelectorAll('span[role="text"]');
         for (const span of spans) {
-          const text = span.textContent || "";
+          const text = span.getAttribute("aria-label") || span.textContent || "";
           // Skip channel name links (they contain <a> tags)
           if (span.querySelector("a")) continue;
           if (!viewsText && /^\d/.test(text)) {
             viewsText = text;
           } else if (
             !timeText &&
-            /\b(minute|hour|day|week|month|year)s?\s+ago\b/.test(text)
+            /(?:\b(minute|hour|day|week|month|year)s?\s+ago\b|\b\d+(?:\.\d+)?\s*[mhdwoy]\s+ago\b)/i.test(text)
           ) {
             timeText = text;
           }
@@ -97,12 +109,12 @@
         '[class*="metadata"] [role="text"], [class*="Metadata"] [role="text"]',
       );
       for (const el of allRows) {
-        const text = el.textContent || "";
+        const text = el.getAttribute("aria-label") || el.textContent || "";
         if (!viewsText && /^\d[\d,.KM]*\s*views?$/i.test(text)) {
           viewsText = text;
         } else if (
           !timeText &&
-          /\b(minute|hour|day|week|month|year)s?\s+ago\b/i.test(text)
+          /(?:\b(minute|hour|day|week|month|year)s?\s+ago\b|\b\d+(?:\.\d+)?\s*[mhdwoy]\s+ago\b)/i.test(text)
         ) {
           timeText = text;
         }
