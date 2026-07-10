@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         YouTube Hide Low Views Videos
-// @version      1.1.1
+// @version      1.1.2
 // @description  Hide YouTube homepage videos published with low views
 // @author       umbertoragone
 // @match        *://*.youtube.com/*
@@ -23,13 +23,24 @@
 
   const CONTAINER_SELECTOR =
     "ytd-rich-item-renderer, ytd-grid-video-renderer, ytd-video-renderer, yt-lockup-view-model";
+  const HIDDEN_ATTR = "data-hide-low-views-videos-hidden";
+
+  function isYoutubeHomepage() {
+    return window.location.pathname === "/";
+  }
 
   function parseViews(text) {
     if (!text) return 0;
-    text = text.toLowerCase().replace(/[^0-9.km]/g, "");
-    if (text.endsWith("k")) return parseFloat(text) * 1e3;
-    if (text.endsWith("m")) return parseFloat(text) * 1e6;
-    const num = parseFloat(text);
+    text = text.toLowerCase().replace(/,/g, "");
+
+    const match = text.match(/(\d+(?:\.\d+)?)\s*(k|m|b|thousand|million|billion)?/);
+    if (!match) return 0;
+
+    const num = parseFloat(match[1]);
+    const unit = match[2] || "";
+    if (unit === "k" || unit === "thousand") return num * 1e3;
+    if (unit === "m" || unit === "million") return num * 1e6;
+    if (unit === "b" || unit === "billion") return num * 1e9;
     return isNaN(num) ? 0 : num;
   }
 
@@ -37,7 +48,7 @@
     if (!text) return Infinity;
     text = text.toLowerCase();
 
-    const shortMatch = text.match(/(\d+(?:\.\d+)?)\s*([mhdwoy])\b/);
+    const shortMatch = text.match(/(\d+(?:\.\d+)?)\s*(mo|m|h|d|w|y)\b/);
     if (shortMatch) {
       const num = parseFloat(shortMatch[1]);
       const unit = shortMatch[2];
@@ -45,7 +56,7 @@
       if (unit === "h") return num;
       if (unit === "d") return num * 24;
       if (unit === "w") return num * 24 * 7;
-      if (unit === "o") return num * 24 * 30;
+      if (unit === "mo") return num * 24 * 30;
       if (unit === "y") return num * 24 * 365;
     }
 
@@ -58,6 +69,23 @@
     if (text.includes("year")) return num * 24 * 365;
 
     return Infinity;
+  }
+
+  function isTimeText(text) {
+    return /(?:\b(minute|hour|day|week|month|year)s?\s+ago\b|\b\d+(?:\.\d+)?\s*(?:mo|[mhdwy])\s+ago\b)/i.test(
+      text,
+    );
+  }
+
+  function isViewsText(text) {
+    return (
+      /\bviews?\b/i.test(text) ||
+      /^\s*\d[\d,.]*\s*(k|m|b|thousand|million|billion)?\s*$/i.test(text)
+    );
+  }
+
+  function getMetadataText(el) {
+    return el.getAttribute("aria-label") || el.textContent || "";
   }
 
   function extractMetadata(item) {
@@ -73,15 +101,12 @@
       for (const row of rows) {
         const spans = row.querySelectorAll('span[role="text"]');
         for (const span of spans) {
-          const text = span.getAttribute("aria-label") || span.textContent || "";
+          const text = getMetadataText(span);
           // Skip channel name links (they contain <a> tags)
           if (span.querySelector("a")) continue;
-          if (!viewsText && /^\d/.test(text)) {
+          if (!viewsText && isViewsText(text) && !isTimeText(text)) {
             viewsText = text;
-          } else if (
-            !timeText &&
-            /(?:\b(minute|hour|day|week|month|year)s?\s+ago\b|\b\d+(?:\.\d+)?\s*[mhdwoy]\s+ago\b)/i.test(text)
-          ) {
+          } else if (!timeText && isTimeText(text)) {
             timeText = text;
           }
         }
@@ -97,8 +122,8 @@
         const parts =
           metadata.parentElement?.querySelectorAll("span[role='text']");
         if (parts && parts.length >= 2) {
-          viewsText = parts[0].textContent || "";
-          timeText = parts[1].textContent || "";
+          viewsText = getMetadataText(parts[0]);
+          timeText = getMetadataText(parts[1]);
         }
       }
     }
@@ -109,13 +134,10 @@
         '[class*="metadata"] [role="text"], [class*="Metadata"] [role="text"]',
       );
       for (const el of allRows) {
-        const text = el.getAttribute("aria-label") || el.textContent || "";
-        if (!viewsText && /^\d[\d,.KM]*\s*views?$/i.test(text)) {
+        const text = getMetadataText(el);
+        if (!viewsText && isViewsText(text) && !isTimeText(text)) {
           viewsText = text;
-        } else if (
-          !timeText &&
-          /(?:\b(minute|hour|day|week|month|year)s?\s+ago\b|\b\d+(?:\.\d+)?\s*[mhdwoy]\s+ago\b)/i.test(text)
-        ) {
+        } else if (!timeText && isTimeText(text)) {
           timeText = text;
         }
       }
@@ -124,11 +146,24 @@
     return { viewsText, timeText };
   }
 
+  function restoreHiddenVideos() {
+    const hiddenItems = document.querySelectorAll(`[${HIDDEN_ATTR}="true"]`);
+    for (const item of hiddenItems) {
+      item.style.removeProperty("display");
+      item.removeAttribute(HIDDEN_ATTR);
+    }
+  }
+
   function hideLowViewOldVideos() {
+    if (!isYoutubeHomepage()) {
+      restoreHiddenVideos();
+      return;
+    }
+
     const items = document.querySelectorAll(CONTAINER_SELECTOR);
     for (const item of items) {
-      // Skip already hidden items
-      if (item.style.display === "none") continue;
+      // Skip items hidden by other YouTube/UI code.
+      if (item.style.display === "none" && !item.hasAttribute(HIDDEN_ATTR)) continue;
 
       const { viewsText, timeText } = extractMetadata(item);
 
@@ -138,7 +173,11 @@
       const hours = parseHoursAgo(timeText);
 
       if (views < MAX_VIEWS && hours >= MIN_HOURS) {
+        item.setAttribute(HIDDEN_ATTR, "true");
         item.style.display = "none";
+      } else if (item.hasAttribute(HIDDEN_ATTR)) {
+        item.style.removeProperty("display");
+        item.removeAttribute(HIDDEN_ATTR);
       }
     }
   }
