@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube Hide Low Views Videos
-// @version      1.1.2
-// @description  Hide YouTube homepage videos published with low views
+// @version      1.1.3
+// @description  Hide YouTube homepage and player sidebar videos published with low views
 // @author       umbertoragone
 // @match        *://*.youtube.com/*
 // @exclude      *://music.youtube.com/*
@@ -25,8 +25,8 @@
     "ytd-rich-item-renderer, ytd-grid-video-renderer, ytd-video-renderer, yt-lockup-view-model";
   const HIDDEN_ATTR = "data-hide-low-views-videos-hidden";
 
-  function isYoutubeHomepage() {
-    return window.location.pathname === "/";
+  function isSupportedPage() {
+    return window.location.pathname === "/" || window.location.pathname === "/watch";
   }
 
   function parseViews(text) {
@@ -155,7 +155,7 @@
   }
 
   function hideLowViewOldVideos() {
-    if (!isYoutubeHomepage()) {
+    if (!isSupportedPage()) {
       restoreHiddenVideos();
       return;
     }

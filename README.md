@@ -2,11 +2,11 @@
 
 [![GitHub release](https://img.shields.io/github/v/release/umbertoragone/youtube-hide-low-views-videos)](https://github.com/umbertoragone/youtube-hide-low-views-videos/releases)
 
-A lightweight userscript that **automatically hides low views videos** from YouTube's homepage.
+A lightweight userscript that **automatically hides low views videos** from YouTube's homepage and player sidebar.
 
 ## Features
 
-- Hides low views (usually low quality) videos
+- Hides low views (usually low quality) videos from the homepage and player sidebar
 - Customizable – adjust `MIN_HOURS` and `MAX_VIEWS` in the script
 - Works dynamically with YouTube's modern **Single Page Application (SPA)** behavior
 - Reacts to scrolling and content updates automatically
