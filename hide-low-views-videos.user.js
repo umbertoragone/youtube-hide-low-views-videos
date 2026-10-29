@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         YouTube Hide Low Views Videos
-// @version      1.1.3
+// @version      1.1.4
 // @description  Hide YouTube homepage and player sidebar videos published with low views
 // @author       umbertoragone
 // @match        *://*.youtube.com/*
@@ -60,7 +60,7 @@
       if (unit === "y") return num * 24 * 365;
     }
 
-    const num = parseFloat(text);
+    const num = parseFloat(text.match(/\d+(?:\.\d+)?/)?.[0]);
     if (text.includes("minute")) return num / 60;
     if (text.includes("hour")) return num;
     if (text.includes("day")) return num * 24;

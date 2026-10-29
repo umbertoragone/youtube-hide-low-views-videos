@@ -7,6 +7,7 @@ A lightweight userscript that **automatically hides low views videos** from YouT
 ## Features
 
 - Hides low views (usually low quality) videos from the homepage and player sidebar
+- Includes archived livestreams (VODs marked “Streamed”) using the same age and view thresholds
 - Customizable – adjust `MIN_HOURS` and `MAX_VIEWS` in the script
 - Works dynamically with YouTube's modern **Single Page Application (SPA)** behavior
 - Reacts to scrolling and content updates automatically
